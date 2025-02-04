@@ -67,12 +67,12 @@ function loadConfig(): OpenAPIMCPServerConfig {
 
   if (!apiBaseUrl) {
     throw new Error(
-      "API base URL is required (--api-base-url or API_BASE_URL)",
+      "API base URL is required (--api-base-url or API_BASE_URL)"
     );
   }
   if (!openApiSpec) {
     throw new Error(
-      "OpenAPI spec is required (--openapi-spec or OPENAPI_SPEC_PATH)",
+      "OpenAPI spec is required (--openapi-spec or OPENAPI_SPEC_PATH)"
     );
   }
 
@@ -129,11 +129,11 @@ class OpenAPIMCPServer {
         if (method === "parameters" || !operation) continue;
 
         const op = operation as OpenAPIV3.OperationObject;
-        // Create a clean tool ID by removing the leading slash and replacing special chars
+        // Create a clean tool ID by removing the leading slash and replacing special chars except hyphens and underscores
         const cleanPath = path.replace(/^\//, "");
         const toolId = `${method.toUpperCase()}-${cleanPath}`.replace(
-          /[^a-zA-Z0-9-]/g,
-          "-",
+          /[^a-zA-Z0-9-_]/g,
+          "-"
         );
         console.error(`Registering tool: ${toolId}`); // Debug logging
         const tool: Tool = {
@@ -210,7 +210,7 @@ class OpenAPIMCPServer {
         console.error(
           `Available tools: ${Array.from(this.tools.entries())
             .map(([id, t]) => `${id} (${t.name})`)
-            .join(", ")}`,
+            .join(", ")}`
         );
         throw new Error(`Tool not found: ${id || name}`);
       }
@@ -220,7 +220,7 @@ class OpenAPIMCPServer {
       try {
         // Extract method and path from tool ID
         const [method, ...pathParts] = toolId.split("-");
-        const path = "/" + pathParts.join("/").replace(/-/g, "/");
+        const path = "/" + pathParts.join("/"); // .replace(/-/g, "/");
 
         // Ensure base URL ends with slash for proper joining
         const baseUrl = this.config.apiBaseUrl.endsWith("/")
@@ -230,8 +230,10 @@ class OpenAPIMCPServer {
         // Remove leading slash from path to avoid double slashes
         const cleanPath = path.startsWith("/") ? path.slice(1) : path;
 
-        // Construct the full URL
-        const url = new URL(cleanPath, baseUrl).toString();
+        // Construct the full URL and replace double // with single /
+        const url = new URL(cleanPath, baseUrl)
+          .toString()
+          .replace(/\/\//g, "/");
 
         //console.error(`Making API request: ${method.toLowerCase()} ${url}`);
         //console.error(`Base URL: ${baseUrl}`);
@@ -278,10 +280,12 @@ class OpenAPIMCPServer {
           console.error("Response headers:", response.headers);
           console.error("Response data:", response.data);
           return {
-            content: [{
-              type: "text",
-              text: JSON.stringify(response.data, null, 2)
-            }]
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(response.data, null, 2),
+              },
+            ],
           };
         } catch (error) {
           if (axios.isAxiosError(error)) {
@@ -292,12 +296,13 @@ class OpenAPIMCPServer {
               headers: error.response?.headers,
             });
             throw new Error(
-              `API request failed: ${error.message} - ${JSON.stringify(error.response?.data)}`,
+              `API request failed: ${error.message} - ${JSON.stringify(
+                error.response?.data
+              )}`
             );
           }
           throw error;
         }
-
       } catch (error) {
         if (axios.isAxiosError(error)) {
           throw new Error(`API request failed: ${error.message}`);
