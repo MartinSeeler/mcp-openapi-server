@@ -132,7 +132,7 @@ class OpenAPIMCPServer {
         // Create a clean tool ID by removing the leading slash and replacing special chars except hyphens and underscores
         const cleanPath = path.replace(/^\//, "");
         const toolId = `${method.toUpperCase()}-${cleanPath}`.replace(
-          /[^a-zA-Z0-9-_]/g,
+          /[^a-zA-Z0-9-_{}]/g,
           "-"
         );
         console.error(`Registering tool: ${toolId}`); // Debug logging
@@ -186,7 +186,7 @@ class OpenAPIMCPServer {
       const { id, name, arguments: params } = request.params;
 
       console.error("Received request:", request.params);
-      console.error("Using parameters from arguments:", params);
+      // console.error("Using parameters from arguments:", params);
 
       // Find tool by ID or name
       let tool: Tool | undefined;
@@ -215,12 +215,25 @@ class OpenAPIMCPServer {
         throw new Error(`Tool not found: ${id || name}`);
       }
 
-      console.error(`Executing tool: ${toolId} (${tool.name})`);
+      // console.error(`Executing tool: ${toolId} (${tool.name})`);
 
       try {
         // Extract method and path from tool ID
         const [method, ...pathParts] = toolId.split("-");
         const path = "/" + pathParts.join("/"); // .replace(/-/g, "/");
+
+        // log the method and path
+        // console.error(`Method: ${method}`);
+        // console.error(`Path: ${path}`);
+
+        // replace all variables with values from params, e.g. /bar/{foo} replace {foo} with params.foo
+        const foo = params || {};
+        // console.error(`Tool parameters:`, foo);
+        let urlWithParams = path;
+        for (const [key, value] of Object.entries(foo)) {
+          urlWithParams = urlWithParams.replace(`{${key}}`, value as string);
+        }
+        // console.error(`URL with params: ${urlWithParams}`);
 
         // Ensure base URL ends with slash for proper joining
         const baseUrl = this.config.apiBaseUrl.endsWith("/")
@@ -228,12 +241,15 @@ class OpenAPIMCPServer {
           : `${this.config.apiBaseUrl}/`;
 
         // Remove leading slash from path to avoid double slashes
-        const cleanPath = path.startsWith("/") ? path.slice(1) : path;
+        const cleanPath = urlWithParams.startsWith("/")
+          ? urlWithParams.slice(1)
+          : urlWithParams;
 
         // Construct the full URL and replace double // with single /
-        const url = new URL(cleanPath, baseUrl)
-          .toString()
-          .replace(/\/\//g, "/");
+        const url = new URL(
+          cleanPath,
+          baseUrl.replace(/\/\//g, "/")
+        ).toString();
 
         //console.error(`Making API request: ${method.toLowerCase()} ${url}`);
         //console.error(`Base URL: ${baseUrl}`);
@@ -270,15 +286,17 @@ class OpenAPIMCPServer {
           config.data = params;
         }
 
-        console.error(`Processed parameters:`, config.params || config.data);
+        // console.error(`Processed parameters:`, config.params || config.data);
 
-        console.error("Final request config:", config);
+        // console.error("Final request config:", config);
+
+        console.error("Requesting", config.method, config.url, config.data);
 
         try {
           const response = await axios(config);
-          console.error("Response status:", response.status);
-          console.error("Response headers:", response.headers);
-          console.error("Response data:", response.data);
+          // console.error("Response status:", response.status);
+          // console.error("Response headers:", response.headers);
+          // console.error("Response data:", response.data);
           return {
             content: [
               {
